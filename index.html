@@ -2811,6 +2811,7 @@
    Mặc định VI. Lựa chọn lưu localStorage.hub_lang. */
 (function () {
   var T = {
+    'Google Play — What\'s new': ['Google Play — Có gì mới', 'Google Play — What\'s new'],
     /* I18N_ADD_20260805 — bổ sung sau khi quét DOM 2 chiều VI/EN
        (Sep 2026-08-05: empty state, footer, nhan nut con sot). */
     'Premium distribution for internal testing only.': ['Bản phân phối nội bộ, chỉ dùng để kiểm thử.', 'Premium distribution for internal testing only.'],
@@ -3191,6 +3192,10 @@
      được → dịch theo mẫu. Chỉ áp khi lang = en; về vi thì khôi phục bản gốc đã
      lưu ở __i18nGoc. */
   var MAU = [
+    /* MAU_TITLE_20260805_MAU tiêu đề modal ghép tên app — phải dùng mẫu, không thêm key được */
+    [/^(.+) — kích build từ xa$/, '$1 — remote build'],
+    [/^(.+) — APK Dev tắt quảng cáo$/, '$1 — Dev APK with ads off'],
+    [/^(.+) — dán link store$/, '$1 — paste store link'],
     [/^Gói phát hành — (.+)$/,                    'Release Kit — $1'],
     [/^Hồ sơ Store — (.+)$/,                      'Store Listing — $1'],
     [/^Cấu hình · (.+)$/,                         'Config · $1'],
@@ -3292,6 +3297,10 @@
      chiều VI→EN nên nhãn kiểu "Feature graphic (1024×500)" không có đường về
      tiếng Việt (Sếp 2026-07-30). */
   var MAU_VI = [
+    /* MAU_TITLE_20260805_MAU_VI tiêu đề modal ghép tên app — phải dùng mẫu, không thêm key được */
+    [/^(.+) — Screenshots$/, '$1 — Ảnh chụp màn hình'],
+    [/^(.+) — Android AAB$/, '$1 — Bản AAB Android'],
+    [/^(.+) — iOS TestFlight$/, '$1 — Bản TestFlight iOS'],
     [/^Feature graphic \((.+)\)$/,        'Ảnh bìa Feature ($1)'],
     [/^Screenshot \((\d+) ảnh (.+)\)$/,   'Ảnh chụp màn hình ($1 ảnh $2)'],
     [/^Screenshot \((.+)\)$/,             'Ảnh chụp màn hình ($1)'],
