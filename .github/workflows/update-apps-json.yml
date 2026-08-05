@@ -1,0 +1,557 @@
+name: Update apps.json on release
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+on:
+  release:
+    types: [published, released]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (leave empty to use latest release)'
+        required: false
+        type: string
+  schedule:
+    # Mỗi 6h: re-validate store URLs (drop 404 → empty, auto-detect khi app vừa lên store)
+    - cron: '0 */6 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  update-apps-json:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ===================== CHECKOUT =====================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Checkout default branch
+        run: |
+          # Try to get default branch from remote, fallback to current or main
+          DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5 || echo "main")
+          echo "Default branch detected as: $DEFAULT_BRANCH"
+          git checkout $DEFAULT_BRANCH || git checkout -b $DEFAULT_BRANCH || echo "Already on branch or failed checkout"
+
+      # ===================== SETUP TOOLS =====================
+      - name: Setup jq and GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+          if ! command -v gh &> /dev/null; then
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install gh -y
+          fi
+          gh --version
+          echo "GitHub CLI installed successfully"
+
+      # ===================== EXTRACT RELEASE INFO =====================
+      - name: Extract release info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EVENT_NAME="${{ github.event_name }}"
+          echo "Event name: $EVENT_NAME"
+          echo "REPO=${{ github.repository }}" >> $GITHUB_ENV
+          
+          if [ "$EVENT_NAME" = "release" ]; then
+            # Trigger từ release event
+            echo "Using release event data"
+            echo "TAG=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+            echo "RELEASE_NAME=${{ github.event.release.name }}" >> $GITHUB_ENV
+          else
+            # Trigger từ workflow_dispatch (chạy thủ công)
+            RELEASE_TAG="${{ inputs.release_tag }}"
+            if [ -n "$RELEASE_TAG" ] && [ "$RELEASE_TAG" != "" ]; then
+              echo "Fetching specific release: $RELEASE_TAG"
+              RELEASE_DATA=$(gh api repos/${{ github.repository }}/releases/tags/$RELEASE_TAG --jq '{tag_name: .tag_name, name: .name}' 2>/dev/null || echo "{}")
+            else
+              echo "Fetching latest release via API"
+              RELEASE_DATA=$(gh api repos/${{ github.repository }}/releases/latest --jq '{tag_name: .tag_name, name: .name}' 2>/dev/null || echo "{}")
+            fi
+            
+            echo "Release data: $RELEASE_DATA"
+            TAG_NAME=$(echo "$RELEASE_DATA" | jq -r '.tag_name // empty')
+            RELEASE_NAME=$(echo "$RELEASE_DATA" | jq -r '.name // empty')
+            echo "TAG=$TAG_NAME" >> $GITHUB_ENV
+            echo "RELEASE_NAME=$RELEASE_NAME" >> $GITHUB_ENV
+            echo "Extracted TAG: $TAG_NAME, RELEASE_NAME: $RELEASE_NAME"
+          fi
+
+      # ===================== PARSE RELEASE ASSETS =====================
+      - name: Parse release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EVENT_NAME="${{ github.event_name }}"
+          
+          if [ "$EVENT_NAME" = "release" ]; then
+            # Trigger từ release event - dùng data từ event
+            echo "Using release event assets"
+            ASSETS='${{ toJson(github.event.release.assets) }}'
+            echo "$ASSETS" > /tmp/all_assets.json
+          else
+            # Trigger từ workflow_dispatch - tổng hợp từ tất cả releases (dev, prod, aab)
+            echo "Fetching assets from all releases (dev, prod, aab)..."
+            
+            # Fetch và save từng release assets vào temp files
+            echo "Fetching from 'dev' release..."
+            gh api repos/${{ github.repository }}/releases/tags/dev --jq '.assets // []' > /tmp/dev_assets.json 2>/dev/null || echo "[]" > /tmp/dev_assets.json
+            
+            echo "Fetching from 'prod' release..."
+            gh api repos/${{ github.repository }}/releases/tags/prod --jq '.assets // []' > /tmp/prod_assets.json 2>/dev/null || echo "[]" > /tmp/prod_assets.json
+            
+            echo "Fetching from 'aab' release..."
+            gh api repos/${{ github.repository }}/releases/tags/aab --jq '.assets // []' > /tmp/aab_assets.json 2>/dev/null || echo "[]" > /tmp/aab_assets.json
+
+            echo "Fetching from 'noads' release..."
+            gh api repos/${{ github.repository }}/releases/tags/noads --jq '.assets // []' > /tmp/noads_assets.json 2>/dev/null || echo "[]" > /tmp/noads_assets.json
+
+            # Combine all assets using jq -s (slurp mode)
+            ALL_ASSETS=$(jq -s 'flatten | unique_by(.id)' /tmp/dev_assets.json /tmp/prod_assets.json /tmp/aab_assets.json /tmp/noads_assets.json)
+            echo "$ALL_ASSETS" > /tmp/all_assets.json
+            echo "Combined assets count: $(echo "$ALL_ASSETS" | jq 'length')"
+          fi
+
+      # ===================== BUILD apps.json =====================
+      - name: Build apps.json from scratch
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          python3 << 'PYTHON_SCRIPT'
+          import json
+          import sys
+          import os
+          import base64
+          import urllib.request as _ur2
+
+          # Read all assets
+          with open('/tmp/all_assets.json', 'r') as f:
+              all_assets = json.load(f)
+
+          # ===== Category source: apps-status snapshot (branch `data`) =====
+          # apps-status (PRIVATE) đã tính category cho mọi app bằng waterfall
+          # override > store(URL+bundle) > AI(gpt-4o-mini), cron refresh 1h.
+          # Đọc qua GitHub Contents API + PAT → KHÔNG cần OPENAI key ở hub.
+          def _norm(s): return (s or "").lower().replace("_", "-")
+          def load_category_map():
+              cat_map = {}
+              tok = os.environ.get("GH_TOKEN", "")
+              if not tok:
+                  print("  ! GH_TOKEN missing — bỏ qua category từ snapshot")
+                  return cat_map
+              try:
+                  req = _ur2.Request(
+                      "https://api.github.com/repos/conmangangqua/apps-status/contents/snapshot.json?ref=data",
+                      headers={"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github.raw",
+                               "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "hub-cat"})
+                  with _ur2.urlopen(req, timeout=20) as r:
+                      snap = json.loads(r.read().decode("utf-8"))
+              except Exception as e:
+                  print(f"  ! load snapshot fail: {e}")
+                  return cat_map
+              def walk(o):
+                  if isinstance(o, dict):
+                      if o.get("slug") and o.get("category"):
+                          cat_map[_norm(o["slug"])] = {"category": o["category"], "source": o.get("category_source", "store")}
+                      for v in o.values(): walk(v)
+                  elif isinstance(o, list):
+                      for v in o: walk(v)
+              walk(snap)
+              print(f"  ✓ category map từ snapshot: {len(cat_map)} app")
+              return cat_map
+
+          def load_category_overrides():
+              try:
+                  with open("category_overrides.json") as _f:
+                      data = json.load(_f)
+                  return {_norm(k): v for k, v in data.items() if not k.startswith("_")}
+              except Exception:
+                  return {}
+
+          CAT_MAP = load_category_map()
+          CAT_OVERRIDES = load_category_overrides()
+
+          # Store meta (version + ngày update) từ snapshot apps-status — thay versions.json
+          def load_store_meta_map():
+              meta_map = {}
+              tok = os.environ.get("GH_TOKEN", "")
+              if not tok:
+                  print("  ! GH_TOKEN missing — bỏ qua store-meta")
+                  return meta_map
+              try:
+                  req = _ur2.Request(
+                      "https://api.github.com/repos/conmangangqua/apps-status/contents/snapshot.json?ref=data",
+                      headers={"Authorization": f"Bearer {tok}", "Accept": "application/vnd.github.raw",
+                               "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "hub-storemeta"})
+                  with _ur2.urlopen(req, timeout=20) as r:
+                      snap = json.loads(r.read().decode("utf-8"))
+              except Exception as e:
+                  print(f"  ! load store-meta fail: {e}")
+                  return meta_map
+              for bid, info in (snap.get("_store_info_cache") or {}).items():
+                  if isinstance(info, dict) and info.get("last_updated"):
+                      meta_map.setdefault(bid.lower(), {})["updated"] = info["last_updated"]
+              for bid, st in (snap.get("_play_state_cache") or {}).items():
+                  if isinstance(st, dict) and st.get("version"):
+                      meta_map.setdefault(bid.lower(), {})["version"] = st["version"]
+              print(f"  ✓ store-meta từ snapshot: {len(meta_map)} bundle")
+              return meta_map
+
+          STORE_META = load_store_meta_map()
+          import re as _re_sm
+          def resolve_store_meta(store_link):
+              if not store_link: return None, None
+              m = _re_sm.search(r"[?&]id=([\w.]+)", store_link)
+              if not m: return None, None
+              e = STORE_META.get(m.group(1).lower())
+              if not e: return None, None
+              return e.get("updated"), e.get("version")
+
+          def resolve_category(app_id):
+              key = _norm(app_id)
+              ov = CAT_OVERRIDES.get(key)
+              if ov:
+                  return ov, "override"
+              snap = CAT_MAP.get(key)
+              if snap:
+                  return snap["category"], snap.get("source", "store")
+              return None, None
+
+          # Manual store links (stores.json in repo root) — durable across regenerate
+          STORES = {}
+          try:
+              with open('stores.json') as _sf:
+                  STORES = json.load(_sf)
+          except Exception:
+              STORES = {}
+          # Manual ASO display names (names.json in repo root) — durable across regenerate
+          NAMES = {}
+          try:
+              with open('names.json') as _nf:
+                  NAMES = json.load(_nf)
+          except Exception:
+              NAMES = {}
+          import urllib.request as _ur
+          def lookup_apple(bundle_id):
+              # iTunes Lookup API — resolve bundle ID → App Store URL.
+              # Trả "" nếu chưa publish (resultCount=0) hoặc lookup fail.
+              try:
+                  with _ur.urlopen(f"https://itunes.apple.com/lookup?bundleId={bundle_id}", timeout=10) as r:
+                      data = json.loads(r.read())
+                  if data.get("resultCount", 0) > 0:
+                      url = data["results"][0].get("trackViewUrl", "").split("?")[0]
+                      print(f"  iTunes ✓ {bundle_id} -> {url}")
+                      return url
+                  print(f"  iTunes ✗ {bundle_id} not on App Store yet")
+                  return ""
+              except Exception as e:
+                  print(f"  iTunes lookup error {bundle_id}: {e}")
+                  return ""
+
+          def resolve_store_link(raw):
+              # Hỗ trợ 3 dạng giá trị trong stores.json:
+              #   1. URL đầy đủ "https://..." → dùng nguyên.
+              #   2. "ios:<bundle_id>" → iTunes Lookup → resolve thành App Store URL.
+              #   3. "android:<bundle_id>" → construct Play Store URL.
+              if not raw:
+                  return ""
+              if raw.startswith("ios:"):
+                  return lookup_apple(raw[4:])
+              if raw.startswith("android:"):
+                  return f"https://play.google.com/store/apps/details?id={raw[8:]}"
+              return raw
+
+          def auto_discover(app_id):
+              # Fallback nếu stores.json không có entry: gọi /api/package trên Vercel
+              # (đã wire bundle ID reader từ GitLab source) → resolve URL.
+              # Zero manual touching cho app mới: Sếp publish → cron 6h tự dò.
+              try:
+                  with _ur.urlopen(f"https://aab.tranquilmind.co/api/package?app_id={app_id}", timeout=15) as r:
+                      d = json.loads(r.read())
+                  plat = d.get("platform")
+                  pkg = d.get("package_id")
+                  if not (plat and pkg):
+                      return ""
+                  if plat == "android":
+                      url = f"https://play.google.com/store/apps/details?id={pkg}"
+                      print(f"  auto-discover android: {app_id} -> {url}")
+                      return url
+                  if plat == "ios":
+                      url = lookup_apple(pkg)
+                      if url:
+                          print(f"  auto-discover ios: {app_id} -> {url}")
+                      return url
+              except Exception as e:
+                  print(f"  auto-discover error {app_id}: {e}")
+              return ""
+
+          def validate_store(u):
+              # Drop URL nếu 404 → apps.json.store rỗng → frontend không hiện "View on Store"
+              # stores.json giữ nguyên URL gốc (intent của user), không bị mất khi re-run
+              if not u:
+                  return ""
+              try:
+                  _ur.urlopen(_ur.Request(u, headers={'User-Agent': 'Mozilla/5.0'}), timeout=12).read(1)
+                  return u
+              except Exception as e:
+                  code = getattr(e, 'code', None)
+                  if code == 404:
+                      print(f"  store 404 -> drop (kept in stores.json): {u}")
+                      return ""
+                  print(f"  store check inconclusive, keep: {u} ({e})")
+                  return u
+
+          # Extract all app IDs from file names
+          app_ids = set()
+          for asset in all_assets:
+              name = asset.get('name', '')
+              if not name: continue
+              
+              base_id = ""
+              if name.endswith('_dev_noads.apk'):
+                  base_id = name.replace('_dev_noads.apk', '')
+              elif name.endswith('_prod_noads.apk'):
+                  base_id = name.replace('_prod_noads.apk', '')
+              elif name.endswith('_dev.apk'):
+                  base_id = name.replace('_dev.apk', '')
+              elif name.endswith('_prod.apk'):
+                  base_id = name.replace('_prod.apk', '')
+              elif name.endswith('.aab'):
+                  base_id = name.replace('.aab', '')
+              elif name.endswith('_dev.ipa') or name.endswith('_prod.ipa'):
+                  base_id = name.replace('_dev.ipa', '').replace('_prod.ipa', '')
+              elif name.lower().endswith('dev.plist') or name.lower().endswith('prod.plist'):
+                  # Handle AppDev.plist, app_dev.plist, emu_game_dev.plist
+                  base_id = name.lower().replace('dev.plist', '').replace('prod.plist', '')
+                  # clean up suffix _
+                  if base_id.endswith('_'): base_id = base_id[:-1]
+              elif name.endswith('_icon.png'):
+                  base_id = name.replace('_icon.png', '')
+              elif name.endswith('_store.url'):
+                  base_id = name.replace('_store.url', '')
+              elif name.endswith('_dev_noads.version'):
+                  base_id = name.replace('_dev_noads.version', '')
+              elif name.endswith('_prod_noads.version'):
+                  base_id = name.replace('_prod_noads.version', '')
+              elif name.endswith('_aab.version'):
+                  base_id = name.replace('_aab.version', '')
+              elif name.endswith('.version'):
+                  base_id = name.replace('.version', '')
+
+              if base_id:
+                  # Clean up double _dev/_prod suffixes if they exist
+                  if base_id.endswith('_dev') or base_id.endswith('_prod'):
+                      base_id = base_id.rsplit('_', 1)[0]
+                  app_ids.add(base_id)
+          
+          app_ids = sorted(list(app_ids))
+          print(f"Found app IDs: {', '.join(app_ids)}")
+          
+          # Build apps array
+          apps = []
+          for app_id in app_ids:
+              # Find URLs for this app
+              dev_url = ""
+              prod_url = ""
+              aab_url = ""
+              noads_url = ""
+              noads_version_url = ""
+              icon_url = ""
+              ios_dev = ""
+              ios_prod = ""
+              dev_version_url = ""
+              prod_version_url = ""
+              aab_version_url = ""
+              store_url_sidecar = ""
+
+              for asset in all_assets:
+                  name = asset.get('name', '')
+                  url = asset.get('browser_download_url', '')
+                  low_name = name.lower()
+
+                  if name == f"{app_id}_dev_noads.apk":
+                      noads_url = url
+                  elif name == f"{app_id}_dev_noads.version":
+                      noads_version_url = url
+                  elif name == f"{app_id}_prod_noads.apk":
+                      noads_url = url
+                  elif name == f"{app_id}_prod_noads.version":
+                      noads_version_url = url
+                  elif name == f"{app_id}_dev.apk":
+                      dev_url = url
+                  elif name == f"{app_id}_prod.apk":
+                      prod_url = url
+                  elif name == f"{app_id}.aab":
+                      aab_url = url
+                  elif name == f"{app_id}_icon.png":
+                      icon_url = url
+                  elif name == f"{app_id}_dev.version":
+                      dev_version_url = url
+                  elif name == f"{app_id}_prod.version":
+                      prod_version_url = url
+                  elif name == f"{app_id}_aab.version":
+                      aab_version_url = url
+                  elif name == f"{app_id}_store.url":
+                      store_url_sidecar = url
+                  # iOS handling
+                  elif low_name == f"{app_id}_dev.ipa": pass # we use plist for download
+                  elif low_name == f"{app_id}_dev.plist" or low_name == f"{app_id}dev.plist" or low_name == "appdev.plist":
+                      ios_dev = url
+                  elif low_name == f"{app_id}_prod.plist" or low_name == f"{app_id}prod.plist" or low_name == "appprod.plist":
+                      ios_prod = url
+
+              # Fetch version content from sidecar URLs (each file ~16 bytes)
+              import urllib.request
+              def fetch_version(u):
+                  if not u: return ""
+                  try:
+                      with urllib.request.urlopen(u, timeout=10) as r:
+                          return r.read().decode('utf-8', errors='ignore').strip()
+                  except Exception as e:
+                      print(f"  ! version fetch failed for {u}: {e}")
+                      return ""
+              versions = {}
+              v = fetch_version(dev_version_url)
+              if v: versions['dev'] = v
+              v = fetch_version(prod_version_url)
+              if v: versions['prod'] = v
+              v = fetch_version(aab_version_url)
+              if v: versions['aab'] = v
+              v = fetch_version(noads_version_url)
+              if v: versions['noads'] = v
+              store_link = fetch_version(store_url_sidecar)
+              if not store_link:
+                  store_link = STORES.get(app_id, "")
+              store_link = resolve_store_link(store_link)
+              if not store_link:
+                  # Fallback auto-discover: gọi /api/package trên Vercel (đọc bundle ID từ GitLab)
+                  store_link = auto_discover(app_id)
+              store_link = validate_store(store_link)
+
+              # Format app name (video_downloader -> Video Downloader)
+              # ASO name: ưu tiên names.json (tên listing thật trên store), fallback title-case từ id
+              app_name = NAMES.get(app_id) or ' '.join(word.capitalize() for word in app_id.replace('_', ' ').split())
+              
+              # Determine Platform
+              has_android = any([dev_url, prod_url, aab_url, noads_url])
+              has_ios = any([ios_dev, ios_prod])
+              
+              platform = "Android"
+              if has_android and has_ios: platform = "Android / iOS"
+              elif has_ios: platform = "iOS"
+              
+              print(f"Processing app: {app_id}")
+              print(f"  DEV: {dev_url or 'none'}, iOS DEV: {ios_dev or 'none'}")
+              print(f"  PROD: {prod_url or 'none'}, iOS PROD: {ios_prod or 'none'}")
+              print(f"  AAB: {aab_url or 'none'}")
+              print(f"  ICON: {icon_url or 'none'}")
+              print(f"  PLATFORM: {platform}")
+              
+              # Build downloads dict (only include non-empty values)
+              downloads = {}
+              if dev_url:
+                  downloads['dev'] = dev_url
+              if prod_url:
+                  downloads['prod'] = prod_url
+              if aab_url:
+                  downloads['aab'] = aab_url
+              if noads_url:
+                  downloads['noads'] = noads_url
+
+              # Override with iOS Manifest if present (for uniformity)
+              if ios_dev: downloads['dev'] = ios_dev
+              if ios_prod: downloads['prod'] = ios_prod
+              
+              cat, cat_src = resolve_category(app_id)
+              print(f"  CATEGORY: {cat or 'none'} ({cat_src or '-'})")
+              store_updated, store_version = resolve_store_meta(store_link)
+              print(f"  STORE: v={store_version or '-'} updated={store_updated or '-'}")
+
+              app = {
+                  'id': app_id,
+                  'name': app_name,
+                  'icon': icon_url,
+                  'platform': platform,
+                  'description': '',
+                  'features': [],
+                  'downloads': downloads,
+                  'versions': versions,
+                  'store': store_link,
+                  'category': cat,
+                  'category_source': cat_src,
+                  'store_updated': store_updated,
+                  'store_version': store_version
+              }
+              apps.append(app)
+          
+          # Create final JSON
+          result = {'apps': apps}
+          
+          # Write to file
+          with open('apps.json', 'w') as f:
+              json.dump(result, f, indent=2)
+          
+          print(f"\nCreated new apps.json with {len(apps)} apps")
+          print("apps.json content:")
+          print(json.dumps(result, indent=2))
+          PYTHON_SCRIPT
+
+
+      # ===================== LOCALIZE ICONS =====================
+      # Icon release ~900KB/app; hub 30+ app => ~30MB mỗi lần mở trang.
+      # Bước này resize về webp ~3KB phục vụ same-origin. PHẢI nằm SAU bước build
+      # apps.json (bước đó gán icon = URL github) nếu không sẽ bị ghi đè.
+      - name: Localize app icons (webp same-origin)
+        run: |
+          sudo apt-get install -y webp
+          python3 scripts/localize_icons.py .
+
+      # ===================== COMMIT & PUSH =====================
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "Git status before add:"
+          git status
+          
+          git add apps.json icons scripts/localize_icons.py
+
+          echo "Git status after add:"
+          git status
+          
+          echo "Git diff --cached:"
+          git diff --cached || true
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            echo "Checking if apps.json changed:"
+            git diff apps.json || echo "No diff in apps.json"
+            exit 0
+          fi
+
+          # 1. Commit first to make the tree clean
+          git commit -m "chore: update apps.json for ${TAG:-latest release}" || echo "Nothing to commit"
+
+          # 2. Detect branch for pull/push
+          TARGET_BRANCH=${CURRENT_BRANCH:-main}
+          if [ "$TARGET_BRANCH" = "HEAD" ] || [ -z "$TARGET_BRANCH" ]; then
+            TARGET_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5 || echo "main")
+          fi
+          echo "Target branch for sync: $TARGET_BRANCH"
+
+          # 3. Pull with rebase and autostash to avoid conflicts, if conflicts occur, assume ours (since we generated from scratch)
+          git pull --rebase --autostash origin $TARGET_BRANCH || (git rebase --skip && git checkout HEAD -- apps.json && git commit --amend --no-edit)
+
+          # 4. Push to the target branch
+          git push origin HEAD:$TARGET_BRANCH --force-with-lease || git push origin HEAD:$TARGET_BRANCH || echo "Push failed, but continuing"
+
+          # Trigger deploy workflow manually using PAT_TOKEN to propagate workflow runs
+          GH_TOKEN=${{ secrets.PAT_TOKEN }} gh workflow run deploy-pages.yml --repo ${{ github.repository }}

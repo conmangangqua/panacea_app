@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Kiểm tra hub</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font:16px/1.6 -apple-system,sans-serif;max-width:640px;margin:40px auto;padding:0 20px}
+b{font-size:20px}li{margin:6px 0}code{background:#f1f5f9;padding:2px 6px;border-radius:6px}</style>
+<b>Trang kiểm tra hub</b>
+<p>Trang này KHÔNG dùng script phức tạp. Nếu bạn đọc được dòng này thì mạng, DNS và
+chứng chỉ đều bình thường — sự cố nằm ở phần JavaScript của hub.</p>
+<ul id="kq"><li>Đang kiểm…</li></ul>
+<script>
+var ul = document.getElementById('kq'); ul.innerHTML = '';
+function ghi(t){ var li=document.createElement('li'); li.textContent=t; ul.appendChild(li); }
+ghi('Trình duyệt: ' + navigator.userAgent);
+ghi('color-mix: ' + (window.CSS && CSS.supports && CSS.supports('color','color-mix(in srgb,#000 50%,#fff)') ? 'hỗ trợ' : 'KHÔNG hỗ trợ'));
+ghi(':has(): ' + (window.CSS && CSS.supports && CSS.supports('selector(:has(*))') ? 'hỗ trợ' : 'KHÔNG hỗ trợ'));
+if (navigator.serviceWorker) navigator.serviceWorker.getRegistrations().then(function(r){
+  ghi('Service Worker đã cài: ' + r.length);
+  r.forEach(function(x){ x.unregister(); });
+  if (r.length) ghi('→ đã gỡ, tải lại trang chính là sạch');
+});
+if (window.caches && caches.keys) caches.keys().then(function(k){ ghi('Cache lưu sẵn: ' + k.length); });
+fetch('./apps.json?cb=' + Date.now()).then(function(r){ return r.json(); })
+  .then(function(d){ ghi('apps.json: tải được, ' + ((d.apps||d).length) + ' app'); })
+  .catch(function(e){ ghi('apps.json LỖI: ' + e.message); });
+</script>

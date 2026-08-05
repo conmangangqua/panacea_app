@@ -1,0 +1,90 @@
+# Tự dịch mô tả app mới — Sếp 2026-07-31: "khi có app mới thì sẽ ntn, t phải vào
+# tự dịch à". Không. Job này chạy khi apps.json đổi (bot thêm app mới), mỗi ngày
+# một lần, hoặc bấm tay; app nào đã có bản dịch khớp bản gốc thì bỏ qua.
+name: Dịch mô tả app
+
+on:
+  push:
+    paths: ['apps.json']
+  schedule:
+    - cron: '17 1 * * *'      # 08:17 giờ VN hằng ngày
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desc-i18n
+  cancel-in-progress: true
+
+jobs:
+  dich:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dịch mô tả còn thiếu
+        run: |
+          python3 - <<'PY'
+          import json, os, urllib.parse, urllib.request
+
+          API  = 'https://aab.tranquilmind.co/api/translate'
+          DESC = 'https://aab.tranquilmind.co/api/description?app_id='
+
+          def mo_ta(app_id):
+              """Mô tả không nằm trong apps.json nên phải hỏi API."""
+              try:
+                  with urllib.request.urlopen(DESC + urllib.parse.quote(app_id), timeout=45) as r:
+                      d = json.load(r)
+              except Exception:
+                  return ''
+              f = d.get('fields') or {}
+              return (d.get('short') or f.get('short_description') or f.get('subtitle') or '').strip()
+
+          def dich(chuoi):
+              req = urllib.request.Request(API, method='POST',
+                  data=json.dumps({'q': chuoi, 'to': 'vi'}).encode(),
+                  headers={'Content-Type': 'application/json'})
+              try:
+                  with urllib.request.urlopen(req, timeout=120) as r:
+                      return json.load(r).get('t') or [None] * len(chuoi)
+              except Exception as e:
+                  print('lỗi dịch:', e)
+                  return [None] * len(chuoi)
+
+          data = json.load(open('apps.json', encoding='utf-8'))
+          apps = data if isinstance(data, list) else data.get('apps', [])
+          cu = {}
+          if os.path.exists('desc_i18n.json'):
+              try: cu = json.load(open('desc_i18n.json', encoding='utf-8'))
+              except Exception: cu = {}
+
+          can, khoa = [], []
+          for a in apps:
+              g = (a.get('description') or '').strip() or mo_ta(a['id'])
+              if not g: continue
+              if cu.get(a['id'], {}).get('en') == g and cu[a['id']].get('vi'): continue
+              can.append(g); khoa.append(a['id'])
+
+          if not can:
+              print('không có mô tả mới'); raise SystemExit
+
+          print(f'dịch {len(can)} mô tả:', ', '.join(khoa))
+          for k, g, v in zip(khoa, can, dich(can)):
+              if v: cu[k] = {'en': g, 'vi': v}
+          json.dump(cu, open('desc_i18n.json', 'w', encoding='utf-8'),
+                    ensure_ascii=False, indent=1, sort_keys=True)
+          print('đã ghi desc_i18n.json —', len(cu), 'app')
+          PY
+
+      - name: Commit nếu có thay đổi
+        run: |
+          if [ -n "$(git status --porcelain desc_i18n.json)" ]; then
+            git config user.name  "tranquil-bot"
+            git config user.email "bot@tranquilmind.co"
+            git add desc_i18n.json
+            git commit -m "chore(i18n): dịch mô tả app mới (tự động)"
+            git push
+          else
+            echo "không có gì để commit"
+          fi

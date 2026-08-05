@@ -1,0 +1,3 @@
+{
+  "_comment": "App id (theo apps.json) → category override TAY. Ưu tiên CAO NHẤT, đè cả rule mịn/store/AI. Để trống → dùng category mịn từ snapshot apps-status. VD: \"velvet_drama\": \"Streaming\""
+}
