@@ -21,7 +21,11 @@ jobs:
   dich:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth: 0 — bước commit phải rebase được lên main mới; clone nông
+      # (depth 1 mặc định) không có đủ lịch sử để rebase.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Dịch mô tả còn thiếu
         run: |
@@ -84,7 +88,17 @@ jobs:
             git config user.email "bot@tranquilmind.co"
             git add desc_i18n.json
             git commit -m "chore(i18n): dịch mô tả app mới (tự động)"
-            git push
+            # Push có retry — incident 2026-08-12 (affica_app run 31558666753): job
+            # checkout ở commit cũ, trong lúc dịch có commit khác chen vào main nên
+            # push non-fast-forward → cả job đỏ dù đã dịch xong. Rebase rồi thử lại.
+            for lan in 1 2 3; do
+              if git push; then exit 0; fi
+              echo "push bị từ chối (lần $lan) — rebase lên main mới rồi thử lại"
+              git pull --rebase origin main
+              sleep 5
+            done
+            echo "::error::push thất bại sau 3 lần thử"
+            exit 1
           else
             echo "không có gì để commit"
           fi
