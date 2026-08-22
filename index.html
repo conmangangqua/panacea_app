@@ -398,7 +398,7 @@
         // NO_ADS_BUILD: nút phục vụ designer — chỉ app Android (Flutter), hiện sau đăng nhập.
         const noAdsTrigger = isAndroid ? `<button type="button" class="btn btn-noadsb" onclick="openNoAdsModal('${app.id}', '${nameEsc}')"><i class="btn-ic" data-lucide="shield-off"></i><span class="btn-stack">Build No-Ads</span></button>` : "";
         // PLAY_PUBLISH: 2 nut day Google Play - CHI admin thay.
-        const playBtns = isAndroid ? `<button type="button" class="btn btn-plyi" onclick="openPlayModal('${app.id}', '${nameEsc}', 'internal')"><i class="btn-ic" data-lucide="upload-cloud"></i><span class="btn-stack">Lên Internal</span></button><button type="button" class="btn btn-plyr" onclick="openPlayModal('${app.id}', '${nameEsc}', 'review')"><i class="btn-ic" data-lucide="send"></i><span class="btn-stack">Gửi Review</span></button>` : "";
+        const playBtns = isAndroid ? `<button type="button" class="btn btn-plyi" onclick="openPlayModal('${app.id}', '${nameEsc}', 'internal')"><i class="btn-ic" data-lucide="upload-cloud"></i><span class="btn-stack">Lên Internal</span></button><button type="button" class="btn btn-plyr" onclick="openPlayModal('${app.id}', '${nameEsc}', 'review')"><i class="btn-ic" data-lucide="send"></i><span class="btn-stack">Gửi Review</span></button><button type="button" class="btn btn-plyp" onclick="openPlayModal('${app.id}', '${nameEsc}', 'production')"><i class="btn-ic" data-lucide="zap"></i><span class="btn-stack">Build &amp; Gửi thẳng</span></button>` : "";
         const noAdsDl = (isAndroid && noadsUrl) ? `<a href="${noadsUrl}" class="btn btn-noads"><i class="btn-ic" data-lucide="download"></i><span class="btn-stack">Tải No-Ads</span></a>` : "";
         const v = app.versions || {};
         const stack = (label, k) => v[k]
@@ -952,14 +952,18 @@
     async function openPlayModal(appId, appName, action) {
       pmAppId = appId; pmAction = action || "internal";
       const isReview = pmAction === "review";
-      $("pmTitle").textContent = isReview ? "Gửi lên Google review" : "Đẩy lên Internal Testing";
+      const isProd = pmAction === "production";
+      $("pmTitle").textContent = isReview ? "Gửi lên Google review"
+        : isProd ? "⚠️ Build & Gửi THẲNG review" : "Đẩy lên Internal Testing";
       $("pmApp").textContent = appName + (isReview ? " — promote bản đã test" : " — build & upload internal");
       $("pmHint").textContent = isReview
         ? "Promote bản ĐANG NẰM trên internal sang production để Google duyệt. KHÔNG build lại — thứ đi review đúng là thứ đã test."
+        : isProd
+        ? "Build rồi gửi THẲNG lên production, BỎ QUA internal testing. Bản này CHƯA AI CHẠY THỬ; Google duyệt xong là tới user thật."
         : "Build AAB rồi upload lên track internal. CHƯA ra bản live.";
       $("pmVerWrap").style.display = isReview ? "none" : "";
       $("pmStatus").textContent = ""; $("pmOk").disabled = false;
-      $("pmOk").textContent = isReview ? "Gửi review" : "Đẩy internal";
+      $("pmOk").textContent = isReview ? "Gửi review" : isProd ? "Tôi hiểu, gửi thẳng" : "Đẩy internal";
       $("playModal").classList.add("open");
       tryRenderIcons();
       if (!isReview) {
@@ -1659,13 +1663,16 @@
     .btn-noadsb:hover{background:color-mix(in srgb,var(--primary,#334155) 9%,var(--card-bg,#fff))}
     .btn-noadsb:disabled{opacity:.6;cursor:progress}
     /* PLAY_PUBLISH — CHỈ ADMIN thấy; partner đăng nhập vẫn ẩn (chặn thật ở backend) */
-    .btn-plyi,.btn-plyr{display:none!important;cursor:pointer;font-family:inherit}
-    body.aab-authed:not(.partner-authed) .btn-plyi,body.aab-authed:not(.partner-authed) .btn-plyr{display:flex!important}
+    .btn-plyi,.btn-plyr,.btn-plyp{display:none!important;cursor:pointer;font-family:inherit}
+    body.aab-authed:not(.partner-authed) .btn-plyi,body.aab-authed:not(.partner-authed) .btn-plyr,body.aab-authed:not(.partner-authed) .btn-plyp{display:flex!important}
     .btn-plyi{background:color-mix(in srgb,var(--primary,#334155) 8%,var(--card-bg,#fff));color:var(--text-main,#0f172a);border:1.5px solid color-mix(in srgb,var(--primary,#334155) 40%,var(--card-bg,#fff))}
     .btn-plyi:hover{background:color-mix(in srgb,var(--primary,#334155) 16%,var(--card-bg,#fff))}
     .btn-plyr{background:var(--primary-strong,var(--primary,#334155));color:#fff;border:1px solid var(--primary,#334155)}
     .btn-plyr:hover{background:color-mix(in srgb,var(--primary,#334155) 85%,#000)}
-    .btn-plyi:disabled,.btn-plyr:disabled{opacity:.6;cursor:progress}
+    /* Nut thu 3 CO Y khac mau han: bo qua test, bam la toi user that. */
+    .btn-plyp{background:color-mix(in srgb,#dc2626 8%,var(--card-bg,#fff));color:#b91c1c;border:1.5px solid color-mix(in srgb,#dc2626 45%,var(--card-bg,#fff))}
+    .btn-plyp:hover{background:color-mix(in srgb,#dc2626 16%,var(--card-bg,#fff))}
+    .btn-plyi:disabled,.btn-plyr:disabled,.btn-plyp:disabled{opacity:.6;cursor:progress}
     body.aab-authed:not(.partner-authed) .btn-noadsb{display:flex!important}
     .btn-noads{background: color-mix(in srgb,var(--text-main,#0f172a) 4%,var(--card-bg,#fff));color: var(--text-main,#0f172a);border: 1px solid color-mix(in srgb,var(--text-main,#0f172a) 13%,var(--card-bg,#fff));text-decoration:none;display:none!important;}
     .btn-noads:hover{background:color-mix(in srgb,var(--primary,#334155) 9%,var(--card-bg,#fff));border-color:color-mix(in srgb,var(--primary,#334155) 45%,var(--card-bg,#fff))}
