@@ -398,7 +398,7 @@
         // NO_ADS_BUILD: nút phục vụ designer — chỉ app Android (Flutter), hiện sau đăng nhập.
         const noAdsTrigger = isAndroid ? `<button type="button" class="btn btn-noadsb" onclick="openNoAdsModal('${app.id}', '${nameEsc}')"><i class="btn-ic" data-lucide="shield-off"></i><span class="btn-stack">Build No-Ads</span></button>` : "";
         // PLAY_PUBLISH: 2 nut day Google Play - CHI admin thay.
-        const playBtns = isAndroid ? `<button type="button" class="btn btn-plyi" onclick="openPlayModal('${app.id}', '${nameEsc}', 'internal')"><i class="btn-ic" data-lucide="upload-cloud"></i><span class="btn-stack">Lên Internal</span></button><button type="button" class="btn btn-plyr" onclick="openPlayModal('${app.id}', '${nameEsc}', 'review')"><i class="btn-ic" data-lucide="send"></i><span class="btn-stack">Gửi Review</span></button><button type="button" class="btn btn-plyp" onclick="openPlayModal('${app.id}', '${nameEsc}', 'production')"><i class="btn-ic" data-lucide="zap"></i><span class="btn-stack">Build &amp; Gửi thẳng</span></button>` : "";
+        const playBtns = isAndroid ? `<button type="button" class="btn btn-plyi" onclick="openPlayModal('${app.id}', '${nameEsc}', 'internal')"><i class="btn-ic" data-lucide="box"></i><span class="btn-stack">Lên Internal</span></button><button type="button" class="btn btn-plyr" onclick="openPlayModal('${app.id}', '${nameEsc}', 'review')"><i class="btn-ic" data-lucide="store"></i><span class="btn-stack">Gửi Review</span></button><button type="button" class="btn btn-plyp" onclick="openPlayModal('${app.id}', '${nameEsc}', 'production')"><i class="btn-ic" data-lucide="rocket"></i><span class="btn-stack">Build &amp; Gửi thẳng</span></button>` : "";
         const noAdsDl = (isAndroid && noadsUrl) ? `<a href="${noadsUrl}" class="btn btn-noads"><i class="btn-ic" data-lucide="download"></i><span class="btn-stack">Tải No-Ads</span></a>` : "";
         const v = app.versions || {};
         const stack = (label, k) => v[k]
@@ -858,7 +858,7 @@
   <!-- PLAY_PUBLISH — 2 nghiệp vụ tách bạch, CHỈ ADMIN -->
   <div class="aab-ov" id="playModal">
     <div class="aab-md">
-      <h3><i data-lucide="upload-cloud" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"></i><span id="pmTitle">Đẩy lên Google Play</span></h3>
+      <h3><i data-lucide="box" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"></i><span id="pmTitle">Đẩy lên Google Play</span></h3>
       <p class="sub" id="pmApp"></p>
       <p style="font-size:.82rem;color:#64748b;margin:-4px 0 10px" id="pmHint"></p>
       <div id="pmVerWrap">
@@ -3227,6 +3227,19 @@
     'Download AAB':         ['Tải AAB', 'Download AAB'],
     'Build AAB':            ['Build AAB', 'Build AAB'],
     'Build No-Ads':         ['Build bản No-Ads', 'Build No-Ads'],
+    // PLAY_I18N — nhan + text modal cua 3 nut day Google Play
+    'Lên Internal':        ['Lên Internal', 'To Internal'],
+    'Gửi Review':          ['Gửi Review', 'Submit Review'],
+    'Build & Gửi thẳng':  ['Build & Gửi thẳng', 'Build & Ship Now'],
+    'Đẩy lên Google Play': ['Đẩy lên Google Play', 'Push to Google Play'],
+    'Đẩy lên Internal Testing': ['Đẩy lên Internal Testing', 'Push to Internal Testing'],
+    'Gửi lên Google review': ['Gửi lên Google review', 'Submit for Google review'],
+    '⚠️ Build & Gửi THẲNG review': ['⚠️ Build & Gửi THẲNG review', '⚠️ Build & submit for review NOW'],
+    'Đẩy internal':       ['Đẩy internal', 'Push to internal'],
+    'Gửi review':          ['Gửi review', 'Submit review'],
+    'Tôi hiểu, gửi thẳng': ['Tôi hiểu, gửi thẳng', 'I understand, ship now'],
+    'Version Name':         ['Version Name', 'Version Name'],
+    'Version Code':         ['Version Code', 'Version Code'],
     'Tải No-Ads':           ['Tải bản No-Ads', 'Download No-Ads'],
     'View on Store':        ['Xem trên Store', 'View on Store'],
     'Hồ sơ Store':          ['Hồ sơ Store', 'Store Listing'],
