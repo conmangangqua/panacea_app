@@ -3772,5 +3772,98 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", batDau);
   else batDau();
 })();</script>
+
+<script>/* GOOGLE_LOGIN — admin: Google OAuth; partner: PIN như cũ */
+(function(){
+  var API = "https://aab.tranquilmind.co";
+  var SENTINEL = "@google";   /* thay cho PIN trong body request khi đã có phiên Google */
+
+  /* 1. Mọi call sang backend phải kèm cookie. Cookie đặt Domain=.tranquilmind.co nên hub
+        (<partner>-app.tranquilmind.co) gửi được sang aab.tranquilmind.co, NHƯNG trình duyệt
+        chỉ gửi khi request khai credentials:'include'. Bọc fetch một chỗ, khỏi sửa 30 chỗ. */
+  var of = window.fetch;
+  window.fetch = function(url, opt){
+    try{
+      var u = typeof url === "string" ? url : (url && url.url) || "";
+      if (u.indexOf(API) === 0) {
+        opt = opt || {};
+        if (!opt.credentials) opt.credentials = "include";
+        return of.call(this, url, opt);
+      }
+    }catch(e){}
+    return of.apply(this, arguments);
+  };
+
+  function ls(k, v){
+    try{ if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){}
+  }
+
+  /* 2. Vừa từ Google quay về thì dựng trạng thái đăng nhập cho hub. */
+  async function syncSession(){
+    try{
+      var r = await of.call(window, API + "/api/auth/me", {credentials:"include"});
+      var d = await r.json();
+      if (!d || !d.authed) return false;
+      var had = ls("aab_authed") === "1" && ls("aab_tier") === "admin";
+      ls("aab_authed", "1");
+      ls("aab_tier", "admin");
+      ls("aab_pin", SENTINEL);      /* các modal kiểm "đã nhập PIN chưa" sẽ không chặn nữa */
+      ls("aab_email", d.email || "");
+      /* Nạp lại MỘT lần để khối login/badge sẵn có tự vẽ đúng trạng thái — rẻ hơn nhiều so
+         với việc đi sửa từng khối render của 12 hub. Cờ chặn lặp vô hạn. */
+      if (!had && !sessionStorage.getItem("ag_synced")) {
+        sessionStorage.setItem("ag_synced", "1");
+        location.reload();
+      }
+      return true;
+    }catch(e){ return false; }
+  }
+
+  /* 3. Nút Google trong modal đăng nhập, đặt TRÊN ô PIN. */
+  function mountBtn(){
+    var ov = document.getElementById("aablOv");
+    var field = document.getElementById("aablField");
+    if (!ov || !field || document.getElementById("aablGoogle")) return;
+
+    var wrap = document.createElement("div");
+    wrap.innerHTML =
+      '<button type="button" id="aablGoogle" style="width:100%;display:flex;align-items:center;' +
+      'justify-content:center;gap:10px;padding:12px 16px;border-radius:12px;border:1.5px solid #dadce0;' +
+      'background:#fff;color:#3c4043;font-weight:700;font-size:.92rem;cursor:pointer;font-family:inherit">' +
+      '<svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">' +
+      '<path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.6l6.7-6.7C35.6 2.7 30.2.5 24 .5 14.6.5 6.5 5.9 2.6 13.7l7.8 6.1C12.3 13.7 17.6 9.5 24 9.5z"/>' +
+      '<path fill="#4285F4" d="M46.1 24.6c0-1.6-.1-2.8-.4-4H24v7.6h12.7c-.3 2.1-1.6 5.2-4.7 7.3l7.6 5.9c4.5-4.2 7.1-10.3 7.1-16.8z"/>' +
+      '<path fill="#FBBC05" d="M10.4 28.2c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6.1C1 16 0 19.9 0 23.5s1 7.5 2.6 10.8l7.8-6.1z"/>' +
+      '<path fill="#34A853" d="M24 47c6.2 0 11.4-2 15.2-5.6l-7.6-5.9c-2 1.4-4.7 2.4-7.6 2.4-6.4 0-11.7-4.2-13.6-10.1l-7.8 6.1C6.5 42.1 14.6 47 24 47z"/>' +
+      '</svg><span>Đăng nhập bằng Google (Admin)</span></button>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin:14px 0 12px;color:#94a3b8;font-size:.78rem;font-weight:700">' +
+      '<span style="flex:1;height:1px;background:#e2e8f0"></span><span>hoặc mã PIN (đối tác)</span>' +
+      '<span style="flex:1;height:1px;background:#e2e8f0"></span></div>';
+    field.parentNode.insertBefore(wrap, field);
+
+    document.getElementById("aablGoogle").onclick = function(){
+      location.href = API + "/api/auth/login?next=" + encodeURIComponent(location.href);
+    };
+  }
+
+  /* 4. Đăng xuất phải xoá CẢ cookie phía backend, không chỉ localStorage —
+        không thì bấm "Đăng nhập" lần sau lại tự vào bằng phiên cũ. */
+  function hookLogout(){
+    var btn = document.getElementById("aablBtn");
+    if (!btn || btn.dataset.agLogout) return;
+    btn.dataset.agLogout = "1";
+    btn.addEventListener("click", function(){
+      var wasAuthed = ls("aab_authed") === "1";
+      if (!wasAuthed) return;                       /* đang mở modal đăng nhập, không phải logout */
+      try{ localStorage.removeItem("aab_email"); localStorage.removeItem("aab_tier"); }catch(e){}
+      try{ sessionStorage.removeItem("ag_synced"); }catch(e){}
+      of.call(window, API + "/api/auth/logout", {method:"POST", credentials:"include"}).catch(function(){});
+    }, true);
+  }
+
+  function start(){ mountBtn(); hookLogout(); syncSession(); }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();</script>
 </body>
 </html>
