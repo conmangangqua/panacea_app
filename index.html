@@ -998,7 +998,9 @@
       const isProd = pmAction === "production";
       $("pmTitle").textContent = isReview ? "Gửi lên Google review"
         : isProd ? "⚠️ Build & Gửi THẲNG review" : "Đẩy lên Internal Testing";
-      $("pmApp").textContent = appName + (isReview ? " — promote bản đã test" : " — build & upload internal");
+      /* PLAY_FIXMIX: thieu nhanh isProd o day -> modal production hien nham nhan internal. */
+      $("pmApp").textContent = appName + (isReview ? " — promote bản đã test"
+        : isProd ? " — BỎ QUA internal testing" : " — build & upload internal");
       $("pmHint").textContent = isReview
         ? "Promote bản ĐANG NẰM trên internal sang production để Google duyệt. KHÔNG build lại — thứ đi review đúng là thứ đã test."
         : isProd
@@ -3294,8 +3296,8 @@
     'Promote bản ĐANG NẰM trên internal sang production để Google duyệt. KHÔNG build lại — thứ đi review đúng là thứ đã test.':
       ['Promote bản ĐANG NẰM trên internal sang production để Google duyệt. KHÔNG build lại — thứ đi review đúng là thứ đã test.',
        'Promotes the build CURRENTLY on internal to production for Google review. No rebuild — what goes to review is exactly what you tested.'],
-    'Build rồi gửi THẲNG lên production, BỎ QUA internal testing. Bản này CHƯA AI CHẠY THỬ; Google duyệt xong là tới user thật. Chỉ dùng cho bản vặt (sửa text, đổi logo, bump version).':
-      ['Build rồi gửi THẲNG lên production, BỎ QUA internal testing. Bản này CHƯA AI CHẠY THỬ; Google duyệt xong là tới user thật. Chỉ dùng cho bản vặt (sửa text, đổi logo, bump version).',
+    'Build rồi gửi THẲNG lên production, BỎ QUA internal testing. Bản này CHƯA AI CHẠY THỬ; Google duyệt xong là tới user thật.':
+      ['Build rồi gửi THẲNG lên production, BỎ QUA internal testing. Bản này CHƯA AI CHẠY THỬ; Google duyệt xong là tới user thật.',
        'Builds and ships STRAIGHT to production, SKIPPING internal testing. Nobody has run this build; once Google approves it reaches real users. Use only for trivial changes (text, logo, version bump).'],
     'Tải No-Ads':           ['Tải bản No-Ads', 'Download No-Ads'],
     'View on Store':        ['Xem trên Store', 'View on Store'],
