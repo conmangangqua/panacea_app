@@ -397,6 +397,8 @@
         const nameEsc = (app.name || '').replace(/'/g, "\\'");
         // NO_ADS_BUILD: nút phục vụ designer — chỉ app Android (Flutter), hiện sau đăng nhập.
         const noAdsTrigger = isAndroid ? `<button type="button" class="btn btn-noadsb" onclick="openNoAdsModal('${app.id}', '${nameEsc}')"><i class="btn-ic" data-lucide="shield-off"></i><span class="btn-stack">Build No-Ads</span></button>` : "";
+        // PLAY_PUBLISH: 2 nut day Google Play - CHI admin thay.
+        const playBtns = isAndroid ? `<button type="button" class="btn btn-plyi" onclick="openPlayModal('${app.id}', '${nameEsc}', 'internal')"><i class="btn-ic" data-lucide="upload-cloud"></i><span class="btn-stack">Lên Internal</span></button><button type="button" class="btn btn-plyr" onclick="openPlayModal('${app.id}', '${nameEsc}', 'review')"><i class="btn-ic" data-lucide="send"></i><span class="btn-stack">Gửi Review</span></button>` : "";
         const noAdsDl = (isAndroid && noadsUrl) ? `<a href="${noadsUrl}" class="btn btn-noads"><i class="btn-ic" data-lucide="download"></i><span class="btn-stack">Tải No-Ads</span></a>` : "";
         const v = app.versions || {};
         const stack = (label, k) => v[k]
@@ -407,7 +409,7 @@
           <div class="badge-row"><span class="badge ${isIOS ? 'ios' : 'android'}"><i data-lucide="${isIOS ? 'apple' : 'smartphone'}" style="width:14px;height:14px;vertical-align:-2px;margin-right:5px"></i>${app.platform || 'Android'}</span>${app.category ? `<span class="pill-category cat-src-${app.category_source||'store'}" title="Nguồn category: ${app.category_source==='override'?'Override tay':app.category_source==='ai'?'AI phân loại':app.category_source==='gitlab'?'Fallback subgroup':'Store category'}"><i data-lucide="tag"></i>${app.category}</span>` : ''}<span class="prod-ads-badge" data-prod-ads="loading" style="display:none"></span><span class="health-badge" data-health="loading" style="display:none"></span></div>
           <h2 class="app-title">${app.name}</h2><p class="app-desc">${app.description || ''}</p>
           <div class="btn-grid">${devUrl ? `<a href="${devUrl}" class="btn btn-dev"><i class="btn-ic" data-lucide="wrench"></i>${stack('Dev Build','dev')}</a>` : ""} ${prodUrl ? `<a href="${prodUrl}" class="btn btn-live"><i class="btn-ic" data-lucide="rocket"></i>${stack('Live Build','prod')}</a>` : ""} ${aabUrl ? `<a href="${aabUrl}" class="btn btn-full"><i class="btn-ic" data-lucide="package"></i>${stack('Download AAB','aab')}</a>` : ""} ${storeUrl ? `<a href="${storeUrl}" target="_blank" rel="noopener" class="btn btn-store"><i class="btn-ic" data-lucide="shopping-bag"></i><span class="btn-stack">View on Store${app.store_version ? `<span class="ver" data-store-ver>${app.store_version}</span>` : `<span class="ver" data-store-ver style="display:none"></span>`}</span></a>` : ""}
-          <button type="button" class="btn btn-build" onclick="openBuildModal('${app.id}', '${(app.name || '').replace(/'/g, "\\'")}')"><i class="btn-ic" data-lucide="hammer"></i><span class="btn-stack">${buildLabel}</span></button>${noAdsTrigger}${noAdsDl}<button type="button" class="btn btn-gd" onclick="openViewDesc('${app.id}', '${(app.name || '').replace(/'/g, "\'")}')"><i class="btn-ic" data-lucide="file-text"></i><span class="btn-stack">Hồ sơ Store</span></button><!-- DS_TAKES_RN_SLOT: Data Safety đứng đúng ô cũ của Release Notes; render sẵn trong markup nên không cần injectButtons() chèn muộn (thủ phạm giật card). --><button type="button" class="btn btn-ds" onclick="openDataSafety('${app.id}', '${(app.name || '').replace(/'/g, "\'")}')"><i class="btn-ic" data-lucide="shield-check"></i><span class="btn-stack">Data Safety</span></button><button type="button" class="btn btn-as" onclick="dlAssets('${app.id}', '${(app.name || '').replace(/'/g, "\'")}', this)"><i class="btn-ic" data-lucide="download"></i><span class="btn-stack">Assets</span></button><button type="button" class="btn btn-ss" onclick="openShots('${app.id}', '${(app.name || '').replace(/'/g, "\'")}')"><i class="btn-ic" data-lucide="image"></i><span class="btn-stack">Screenshots</span></button><button type="button" class="btn btn-cfg" onclick="openConfig('${app.id}', '${(app.name || '').replace(/'/g, "\'")}')"><i class="btn-ic" data-lucide="settings-2"></i><span class="btn-stack">Kiểm tra cấu hình</span></button></div><div class="store-meta">${app.storeUpdated ? `<span class="store-upd"><span class="icon">📅</span>Cập nhật Store: ${app.storeUpdated}</span>` : ""}</div>`;
+          <button type="button" class="btn btn-build" onclick="openBuildModal('${app.id}', '${(app.name || '').replace(/'/g, "\\'")}')"><i class="btn-ic" data-lucide="hammer"></i><span class="btn-stack">${buildLabel}</span></button>${noAdsTrigger}${playBtns}${noAdsDl}<button type="button" class="btn btn-gd" onclick="openViewDesc('${app.id}', '${(app.name || '').replace(/'/g, "\'")}')"><i class="btn-ic" data-lucide="file-text"></i><span class="btn-stack">Hồ sơ Store</span></button><!-- DS_TAKES_RN_SLOT: Data Safety đứng đúng ô cũ của Release Notes; render sẵn trong markup nên không cần injectButtons() chèn muộn (thủ phạm giật card). --><button type="button" class="btn btn-ds" onclick="openDataSafety('${app.id}', '${(app.name || '').replace(/'/g, "\'")}')"><i class="btn-ic" data-lucide="shield-check"></i><span class="btn-stack">Data Safety</span></button><button type="button" class="btn btn-as" onclick="dlAssets('${app.id}', '${(app.name || '').replace(/'/g, "\'")}', this)"><i class="btn-ic" data-lucide="download"></i><span class="btn-stack">Assets</span></button><button type="button" class="btn btn-ss" onclick="openShots('${app.id}', '${(app.name || '').replace(/'/g, "\'")}')"><i class="btn-ic" data-lucide="image"></i><span class="btn-stack">Screenshots</span></button><button type="button" class="btn btn-cfg" onclick="openConfig('${app.id}', '${(app.name || '').replace(/'/g, "\'")}')"><i class="btn-ic" data-lucide="settings-2"></i><span class="btn-stack">Kiểm tra cấu hình</span></button></div><div class="store-meta">${app.storeUpdated ? `<span class="store-upd"><span class="icon">📅</span>Cập nhật Store: ${app.storeUpdated}</span>` : ""}</div>`;
         container.appendChild(card);
       });
       /* INJECT_SYNC: chèn nút ngay trong cùng lượt vẽ để card không đổi kích thước sau đó. */
@@ -853,6 +855,27 @@
     </div>
   </div>
   <!-- NO_ADS_BUILD: modal để designer kích build bản tắt quảng cáo -->
+  <!-- PLAY_PUBLISH — 2 nghiệp vụ tách bạch, CHỈ ADMIN -->
+  <div class="aab-ov" id="playModal">
+    <div class="aab-md">
+      <h3><i data-lucide="upload-cloud" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"></i><span id="pmTitle">Đẩy lên Google Play</span></h3>
+      <p class="sub" id="pmApp"></p>
+      <p style="font-size:.82rem;color:#64748b;margin:-4px 0 10px" id="pmHint"></p>
+      <div id="pmVerWrap">
+        <label>Version Name</label>
+        <input type="text" id="pmName" placeholder="1.0.1" autocomplete="off">
+        <label>Version Code</label>
+        <input type="text" id="pmCode" inputmode="numeric" placeholder="26082201" autocomplete="off">
+      </div>
+      <label>Mã PIN</label>
+      <input type="password" id="pmPin" inputmode="numeric" placeholder="Nhập PIN" autocomplete="off">
+      <div class="aab-st" id="pmStatus"></div>
+      <div class="aab-act">
+        <button type="button" class="aab-cancel" onclick="closePlayModal()">Huỷ</button>
+        <button type="button" class="aab-ok" id="pmOk" onclick="submitPlay()">Xác nhận</button>
+      </div>
+    </div>
+  </div>
   <div class="aab-ov" id="noAdsModal">
     <div class="aab-md">
       <h3><i data-lucide="shield-off" style="width:20px;height:20px;vertical-align:-4px;margin-right:8px"></i>Build bản No-Ads</h3>
@@ -922,6 +945,86 @@
         $("bmOk").disabled = false;
       }
     }
+    // ===== PLAY_PUBLISH: đẩy Google Play — CHỈ ADMIN =====
+    // internal = build AAB + upload track internal (có bump version)
+    // review   = promote bản ĐANG ở internal sang production (KHÔNG build lại, KHÔNG bump)
+    let pmAppId = "", pmAction = "internal";
+    async function openPlayModal(appId, appName, action) {
+      pmAppId = appId; pmAction = action || "internal";
+      const isReview = pmAction === "review";
+      $("pmTitle").textContent = isReview ? "Gửi lên Google review" : "Đẩy lên Internal Testing";
+      $("pmApp").textContent = appName + (isReview ? " — promote bản đã test" : " — build & upload internal");
+      $("pmHint").textContent = isReview
+        ? "Promote bản ĐANG NẰM trên internal sang production để Google duyệt. KHÔNG build lại — thứ đi review đúng là thứ đã test."
+        : "Build AAB rồi upload lên track internal. CHƯA ra bản live.";
+      $("pmVerWrap").style.display = isReview ? "none" : "";
+      $("pmStatus").textContent = ""; $("pmOk").disabled = false;
+      $("pmOk").textContent = isReview ? "Gửi review" : "Đẩy internal";
+      $("playModal").classList.add("open");
+      tryRenderIcons();
+      if (!isReview) {
+        $("pmName").value = ""; $("pmCode").value = "";
+        try {
+          const r = await fetch(`${BUILD_API}/api/version?app_id=${encodeURIComponent(appId)}`);
+          const d = await r.json();
+          if (r.ok && d.version_name) { $("pmName").value = d.version_name; $("pmCode").value = d.next_version_code || d.version_code || ""; }
+        } catch (e) {}
+      }
+      setTimeout(() => { const el = $("pmPin"); if (el && !el.value) el.focus(); }, 50);
+    }
+    function closePlayModal() { $("playModal").classList.remove("open"); }
+    async function submitPlay() {
+      const payload = { app_id: pmAppId, action: pmAction, pin: $("pmPin").value.trim() };
+      if (pmAction !== "review") {
+        payload.version_name = $("pmName").value.trim();
+        payload.version_code = $("pmCode").value.trim();
+        if (!payload.version_name || !payload.version_code) {
+          $("pmStatus").style.color = "#ef4444"; $("pmStatus").textContent = "⚠️ Điền đủ Version Name và Code."; return;
+        }
+      }
+      if (!payload.pin) { $("pmStatus").style.color = "#ef4444"; $("pmStatus").textContent = "⚠️ Nhập mã PIN."; return; }
+      $("pmOk").disabled = true;
+      $("pmStatus").style.color = "var(--text-muted)";
+      $("pmStatus").textContent = pmAction === "review" ? "⏳ Đang gửi review..." : "⏳ Đang kích đẩy internal...";
+      try {
+        const r = await fetch(`${BUILD_API}/api/play`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Thất bại");
+        closePlayModal();
+        showSnack("✅ " + (d.message || "Đã kích"), d.pipeline_url, false);
+      } catch (e) {
+        $("pmStatus").style.color = "#ef4444"; $("pmStatus").textContent = "❌ " + e.message;
+      } finally { $("pmOk").disabled = false; }
+    }
+    $("playModal").addEventListener("click", (e) => { if (e.target.id === "playModal") closePlayModal(); });
+
+    // PLAY_PUBLISH — đồng bộ class `partner-authed` từ localStorage.
+    // Chỉ 4 hub có partner tier tự toggle class này; 8 hub còn lại KHÔNG BAO GIỜ set nó, nên
+    // partner đăng nhập ở đó sẽ NHÌN THẤY nút (backend vẫn chặn 403 — đây là lỗ thẩm mỹ, không
+    // phải lỗ bảo mật). Đồng bộ ở đây để mọi hub hành xử giống nhau, không phải đụng vào code
+    // login vốn khác nhau giữa các hub.
+    (function(){
+      function syncTier(){
+        try{
+          var t = localStorage.getItem("aab_tier") || "";
+          document.body.classList.toggle("partner-authed", t === "partner");
+        }catch(e){}
+      }
+      function start(){
+        syncTier();
+        window.addEventListener("storage", syncTier);
+        var btn = document.getElementById("aablBtn");
+        if (btn) {
+          btn.addEventListener("click", function(){ setTimeout(syncTier, 150); });
+          new MutationObserver(syncTier).observe(btn, {childList:true, subtree:true, characterData:true});
+        }
+      }
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+      else start();
+    })();
+
     // ===== NO_ADS_BUILD: kích build APK dev tắt quảng cáo (designer) =====
     let naAppId = "";
     function openNoAdsModal(appId, appName) {
@@ -1555,6 +1658,14 @@
   .btn-noadsb{background: color-mix(in srgb,var(--text-main,#0f172a) 4%,var(--card-bg,#fff));color: var(--text-main,#0f172a);border:1.5px solid color-mix(in srgb,var(--primary,#334155) 42%,var(--card-bg,#fff));cursor:pointer;display:none!important}
     .btn-noadsb:hover{background:color-mix(in srgb,var(--primary,#334155) 9%,var(--card-bg,#fff))}
     .btn-noadsb:disabled{opacity:.6;cursor:progress}
+    /* PLAY_PUBLISH — CHỈ ADMIN thấy; partner đăng nhập vẫn ẩn (chặn thật ở backend) */
+    .btn-plyi,.btn-plyr{display:none!important;cursor:pointer;font-family:inherit}
+    body.aab-authed:not(.partner-authed) .btn-plyi,body.aab-authed:not(.partner-authed) .btn-plyr{display:flex!important}
+    .btn-plyi{background:color-mix(in srgb,var(--primary,#334155) 8%,var(--card-bg,#fff));color:var(--text-main,#0f172a);border:1.5px solid color-mix(in srgb,var(--primary,#334155) 40%,var(--card-bg,#fff))}
+    .btn-plyi:hover{background:color-mix(in srgb,var(--primary,#334155) 16%,var(--card-bg,#fff))}
+    .btn-plyr{background:var(--primary-strong,var(--primary,#334155));color:#fff;border:1px solid var(--primary,#334155)}
+    .btn-plyr:hover{background:color-mix(in srgb,var(--primary,#334155) 85%,#000)}
+    .btn-plyi:disabled,.btn-plyr:disabled{opacity:.6;cursor:progress}
     body.aab-authed:not(.partner-authed) .btn-noadsb{display:flex!important}
     .btn-noads{background: color-mix(in srgb,var(--text-main,#0f172a) 4%,var(--card-bg,#fff));color: var(--text-main,#0f172a);border: 1px solid color-mix(in srgb,var(--text-main,#0f172a) 13%,var(--card-bg,#fff));text-decoration:none;display:none!important;}
     .btn-noads:hover{background:color-mix(in srgb,var(--primary,#334155) 9%,var(--card-bg,#fff));border-color:color-mix(in srgb,var(--primary,#334155) 45%,var(--card-bg,#fff))}
