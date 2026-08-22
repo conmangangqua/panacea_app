@@ -3288,6 +3288,15 @@
     'Tôi hiểu, gửi thẳng': ['Tôi hiểu, gửi thẳng', 'I understand, ship now'],
     'Version Name':         ['Version Name', 'Version Name'],
     'Version Code':         ['Version Code', 'Version Code'],
+    'Build AAB rồi upload lên track internal. CHƯA ra bản live.':
+      ['Build AAB rồi upload lên track internal. CHƯA ra bản live.',
+       'Builds the AAB and uploads it to the internal track. NOT live yet.'],
+    'Promote bản ĐANG NẰM trên internal sang production để Google duyệt. KHÔNG build lại — thứ đi review đúng là thứ đã test.':
+      ['Promote bản ĐANG NẰM trên internal sang production để Google duyệt. KHÔNG build lại — thứ đi review đúng là thứ đã test.',
+       'Promotes the build CURRENTLY on internal to production for Google review. No rebuild — what goes to review is exactly what you tested.'],
+    'Build rồi gửi THẲNG lên production, BỎ QUA internal testing. Bản này CHƯA AI CHẠY THỬ; Google duyệt xong là tới user thật. Chỉ dùng cho bản vặt (sửa text, đổi logo, bump version).':
+      ['Build rồi gửi THẲNG lên production, BỎ QUA internal testing. Bản này CHƯA AI CHẠY THỬ; Google duyệt xong là tới user thật. Chỉ dùng cho bản vặt (sửa text, đổi logo, bump version).',
+       'Builds and ships STRAIGHT to production, SKIPPING internal testing. Nobody has run this build; once Google approves it reaches real users. Use only for trivial changes (text, logo, version bump).'],
     'Tải No-Ads':           ['Tải bản No-Ads', 'Download No-Ads'],
     'View on Store':        ['Xem trên Store', 'View on Store'],
     'Hồ sơ Store':          ['Hồ sơ Store', 'Store Listing'],
@@ -3374,6 +3383,10 @@
     /* MAU_TITLE_20260805_MAU tiêu đề modal ghép tên app — phải dùng mẫu, không thêm key được */
     [/^(.+) — kích build từ xa$/, '$1 — remote build'],
     [/^(.+) — APK Dev tắt quảng cáo$/, '$1 — Dev APK with ads off'],
+    /* PLAY_I18N2 */
+    [/^(.+) — promote bản đã test$/, '$1 — promote the tested build'],
+    [/^(.+) — build & upload internal$/, '$1 — build & upload to internal'],
+    [/^(.+) — BỎ QUA internal testing$/, '$1 — SKIPPING internal testing'],
     [/^(.+) — dán link store$/, '$1 — paste store link'],
     [/^Gói phát hành — (.+)$/,                    'Release Kit — $1'],
     [/^Hồ sơ Store — (.+)$/,                      'Store Listing — $1'],
@@ -3404,6 +3417,10 @@
     [/^Không lấy được tunnel URL \(Mac có đang on\?\): (.*)$/, 'Could not get tunnel URL (is the Mac on?): $1'],
     [/^(.+) — kích build từ xa$/,            '$1 — trigger a remote build'],
     [/^(.+) — APK Dev tắt quảng cáo$/,       '$1 — Dev APK with ads disabled'],
+    /* PLAY_I18N2 */
+    [/^(.+) — promote bản đã test$/, '$1 — promote the tested build'],
+    [/^(.+) — build & upload internal$/, '$1 — build & upload to internal'],
+    [/^(.+) — BỎ QUA internal testing$/, '$1 — SKIPPING internal testing'],
     [/^🍎 Nhập ID số App Store \(bundle: (.+)\) vào cuối link$/,
                                             '🍎 Append the numeric App Store ID (bundle: $1) to the link'],
     [/^🔒 Device đang chụp '(.+)' \((\d+)s\) — chờ xong rồi mới Gen được\.$/,
@@ -3436,6 +3453,9 @@
                                                    'Data Safety not declared, or app not published publicly on Play Store'],
     [/kích build từ xa/g,                          'trigger a remote build'],
     [/APK Dev tắt quảng cáo/g,                     'Dev APK with ads disabled'],
+    [/— promote bản đã test/g, '— promote the tested build'],
+    [/— build & upload internal/g, '— build & upload to internal'],
+    [/— BỎ QUA internal testing/g, '— SKIPPING internal testing'],
     [/dán link store/g,                            'paste store link'],
     [/Hiện tại:/g,                                 'Current:'],
     [/đề xuất code mới:/g,                         'suggested new code:'],
