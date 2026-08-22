@@ -945,6 +945,49 @@
         $("bmOk").disabled = false;
       }
     }
+
+    // PLAY_ACCESS_GATE - chi hien 3 nut Play cho app ma service account THUC SU co quyen.
+    // Store nao Sep chua moi SA vao thi bam cung chi an 403; hien nut ra la moi nguoi dung
+    // bam vao cho chac chan hong. Hoi backend 1 lan sau khi admin dang nhap.
+    (function(){
+      var done = false;
+      function pin(){ try{ return localStorage.getItem("aab_pin")||""; }catch(e){ return ""; } }
+      function isAdmin(){
+        try{
+          return localStorage.getItem("aab_authed")==="1"
+              && (localStorage.getItem("aab_tier")||"")!=="partner";
+        }catch(e){ return false; }
+      }
+      async function gate(){
+        if (done || !isAdmin() || !pin()) return;
+        var cards = document.querySelectorAll(".app-card[data-app-id]");
+        if (!cards.length) return;            // apps.json chua render xong
+        done = true;
+        var ids = Array.prototype.map.call(cards, function(c){ return c.dataset.appId; });
+        try{
+          var r = await fetch(BUILD_API + "/api/playaccess", {
+            method: "POST", headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({ app_ids: ids, pin: pin() })
+          });
+          var d = await r.json();
+          if (!r.ok || !d.access) { done = false; return; }   // loi thi thu lai luot sau
+          Array.prototype.forEach.call(cards, function(c){
+            if (d.access[c.dataset.appId]) c.dataset.play = "1";
+          });
+        }catch(e){ done = false; }
+      }
+      function start(){
+        gate();
+        window.addEventListener("storage", function(){ done = false; gate(); });
+        var btn = document.getElementById("aablBtn");
+        if (btn) btn.addEventListener("click", function(){ setTimeout(function(){ done=false; gate(); }, 400); });
+        var box = document.getElementById("appContainer");
+        if (box) new MutationObserver(function(){ gate(); }).observe(box, {childList:true});
+      }
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+      else start();
+    })();
+
     // ===== PLAY_PUBLISH: đẩy Google Play — CHỈ ADMIN =====
     // internal = build AAB + upload track internal (có bump version)
     // review   = promote bản ĐANG ở internal sang production (KHÔNG build lại, KHÔNG bump)
@@ -1664,7 +1707,8 @@
     .btn-noadsb:disabled{opacity:.6;cursor:progress}
     /* PLAY_PUBLISH — CHỈ ADMIN thấy; partner đăng nhập vẫn ẩn (chặn thật ở backend) */
     .btn-plyi,.btn-plyr,.btn-plyp{display:none!important;cursor:pointer;font-family:inherit}
-    body.aab-authed:not(.partner-authed) .btn-plyi,body.aab-authed:not(.partner-authed) .btn-plyr,body.aab-authed:not(.partner-authed) .btn-plyp{display:flex!important}
+    /* Chi hien khi (a) la admin VA (b) SA co quyen tren store chua app nay. */
+    body.aab-authed:not(.partner-authed) .app-card[data-play="1"] .btn-plyi,body.aab-authed:not(.partner-authed) .app-card[data-play="1"] .btn-plyr,body.aab-authed:not(.partner-authed) .app-card[data-play="1"] .btn-plyp{display:flex!important}
     .btn-plyi{background:color-mix(in srgb,var(--primary,#334155) 8%,var(--card-bg,#fff));color:var(--text-main,#0f172a);border:1.5px solid color-mix(in srgb,var(--primary,#334155) 40%,var(--card-bg,#fff))}
     .btn-plyi:hover{background:color-mix(in srgb,var(--primary,#334155) 16%,var(--card-bg,#fff))}
     .btn-plyr{background:var(--primary-strong,var(--primary,#334155));color:#fff;border:1px solid var(--primary,#334155)}
