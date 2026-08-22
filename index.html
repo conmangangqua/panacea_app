@@ -2874,6 +2874,7 @@
     "/api/gendatasafety": "nhắc bot gen Data safety CSV",
     "/api/gendocs":       "nhắc bot gen tài liệu BA",
     "/api/build":         "build bản mới",
+    "/api/play":          "đẩy lên Google Play",
     "/api/rename":        "đổi tên app",
     "/api/store":         "cập nhật link Store",
     "/api/configsave":    "ghi cấu hình",
@@ -2882,7 +2883,10 @@
     "/api/releasekit":    "tải dữ liệu gói phát hành"
   };
   // Đọc rồi gửi lại thì không cần hỏi (không đổi gì trên hệ thống).
-  var KHONG_HOI = { "/api/releasekit": 1, "/api/auth": 1 };
+  var KHONG_HOI = { "/api/releasekit": 1, "/api/auth": 1,
+    /* PLAY_CONFIRM_FIX: kiem tra quyen la CHI-DOC va chay TU DONG luc load
+       -> hoi xac nhan la vo duyen, vua mo hub da bi popup. */
+    "/api/playaccess": 1 };
   /* CONFIRM_UI: hộp xác nhận dựng trong trang — cùng token màu/bo góc/shadow với
      các modal khác, dịch được qua i18n, đóng bằng Esc hoặc bấm nền.
      window.confirm() không làm được cả ba việc đó. */
